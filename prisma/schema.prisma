@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PARTNER
+  ADMIN
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  BANNED
+}
+
+enum PackageType {
+  INSTANT_FUNDING
+  EVALUATION
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+}
+
+enum WithdrawalMethod {
+  BANK
+  CRYPTO
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CampaignGoalType {
+  REFERRAL_COUNT
+  EARNINGS
+}
+
+enum CampaignStatus {
+  ACTIVE
+  ENDED
+}
+
+enum NotificationType {
+  NEW_REFERRAL
+  COMMISSION_EARNED
+  WITHDRAWAL_UPDATE
+  BADGE_EARNED
+  CAMPAIGN_UPDATE
+  SYSTEM
+  MESSAGE
+}
+
+enum ResourceType {
+  VIDEO
+  PDF
+  ARTICLE
+  COURSE
+}
+
+enum MaterialCategory {
+  BANNER
+  SOCIAL_MEDIA
+  EMAIL_TEMPLATE
+  LANDING_PAGE
+  OTHER
+}
+
+// ─── USERS ──────────────────────────────────────────────────────
+
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  passwordHash       String?
+  role               UserRole   @default(PARTNER)
+  status             UserStatus @default(INVITED)
+  inviteToken        String?    @unique
+  inviteTokenExpiry  DateTime?
+  fullName           String?
+  phone              String?
+  address            String?
+  socialMedia        Json?
+  desiredNetworkSize Int?
+  avatarUrl          String?
+  referralCode       String?    @unique
+  pipzenReferralLink String?
+
+  referrerId String?
+  referrer   User?  @relation("ReferralTree", fields: [referrerId], references: [id])
+  referrals  User[] @relation("ReferralTree")
+
+  purchases         Purchase[]       @relation("BuyerPurchases")
+  seededPurchases   Purchase[]       @relation("SeederPurchases")
+  earnedCommissions Commission[]     @relation("EarnerCommissions")
+  buyerCommissions  Commission[]     @relation("BuyerCommissions")
+  withdrawals       Withdrawal[]
+  badgeAwards       BadgeAward[]
+  sentMessages      Message[]        @relation("SentMessages")
+  receivedMessages  Message[]        @relation("ReceivedMessages")
+  notifications     Notification[]
+
+  profileCompleted Boolean  @default(false)
+  lastLoginAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([referrerId])
+  @@index([status])
+  @@index([role])
+  @@map("users")
+}
+
+// ─── PURCHASES ──────────────────────────────────────────────────
+
+model Purchase {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation("BuyerPurchases", fields: [userId], references: [id])
+  amount      Decimal     @db.Decimal(10, 2)
+  packageName String
+  packageType PackageType
+  purchasedAt DateTime    @default(now())
+  seededById  String
+  seededBy    User        @relation("SeederPurchases", fields: [seededById], references: [id])
+  commissions Commission[]
+  createdAt   DateTime    @default(now())
+
+  @@index([userId])
+  @@index([seededById])
+  @@map("purchases")
+}
+
+// ─── COMMISSIONS ────────────────────────────────────────────────
+
+model Commission {
+  id               String           @id @default(cuid())
+  purchaseId       String
+  purchase         Purchase         @relation(fields: [purchaseId], references: [id])
+  earnerId         String
+  earner           User             @relation("EarnerCommissions", fields: [earnerId], references: [id])
+  buyerId          String
+  buyer            User             @relation("BuyerCommissions", fields: [buyerId], references: [id])
+  level            Int
+  rate             Decimal          @db.Decimal(5, 2)
+  commissionAmount Decimal          @db.Decimal(10, 2)
+  status           CommissionStatus @default(PENDING)
+  createdAt        DateTime         @default(now())
+
+  @@index([earnerId])
+  @@index([buyerId])
+  @@index([purchaseId])
+  @@index([status])
+  @@map("commissions")
+}
+
+// ─── WITHDRAWALS ────────────────────────────────────────────────
+
+model Withdrawal {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  amount        Decimal          @db.Decimal(10, 2)
+  method        WithdrawalMethod
+  bankName      String?
+  accountNumber String?
+  accountHolder String?
+  walletAddress String?
+  cryptoType    String?
+  cryptoNetwork String?
+  status        WithdrawalStatus @default(PENDING)
+  adminNote     String?
+  processedAt   DateTime?
+  requestedAt   DateTime         @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+// ─── CAMPAIGNS ──────────────────────────────────────────────────
+
+model Campaign {
+  id           String           @id @default(cuid())
+  title        String
+  description  String?
+  goalType     CampaignGoalType
+  goalValue    Decimal          @db.Decimal(10, 2)
+  rewardAmount Decimal          @db.Decimal(10, 2)
+  startDate    DateTime
+  endDate      DateTime
+  status       CampaignStatus   @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("campaigns")
+}
+
+// ─── BADGES ─────────────────────────────────────────────────────
+
+model Badge {
+  id                String       @id @default(cuid())
+  name              String
+  description       String?
+  iconUrl           String?
+  referralThreshold Int          @unique
+  rewardAmount      Decimal      @db.Decimal(10, 2)
+  isActive          Boolean      @default(true)
+  awards            BadgeAward[]
+  createdAt         DateTime     @default(now())
+
+  @@map("badges")
+}
+
+model BadgeAward {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  awardedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@map("badge_awards")
+}
+
+// ─── MARKETING MATERIALS ────────────────────────────────────────
+
+model MarketingMaterial {
+  id            String           @id @default(cuid())
+  title         String
+  description   String?
+  category      MaterialCategory
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  thumbnailUrl  String?
+  downloadCount Int              @default(0)
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+
+  @@index([category])
+  @@map("marketing_materials")
+}
+
+// ─── TRAINING RESOURCES ─────────────────────────────────────────
+
+model TrainingResource {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?
+  type         ResourceType
+  url          String
+  thumbnailUrl String?
+  duration     Int?
+  sortOrder    Int          @default(0)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  @@map("training_resources")
+}
+
+// ─── MESSAGES ───────────────────────────────────────────────────
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, isRead])
+  @@map("messages")
+}
+
+// ─── NOTIFICATIONS ──────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ─── PLATFORM SETTINGS ──────────────────────────────────────────
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String
+  type      String   @default("string")
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
