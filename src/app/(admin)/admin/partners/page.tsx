@@ -4,7 +4,11 @@ import { PartnersClient } from "./partners-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPartnersPage() {
+export default async function AdminPartnersPage({
+  searchParams,
+}: {
+  searchParams: { partner?: string };
+}) {
   const partners = await prisma.user.findMany({
     where: { role: "PARTNER" },
     orderBy: { createdAt: "desc" },
@@ -32,6 +36,7 @@ export default async function AdminPartnersPage() {
       <PartnersClient
         partners={JSON.parse(JSON.stringify(partners))}
         activePartners={JSON.parse(JSON.stringify(activePartners))}
+        initialPartnerId={searchParams.partner}
       />
     </div>
   );

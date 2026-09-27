@@ -10,7 +10,8 @@
     "postinstall": "npx prisma generate",
     "db:push": "npx prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "test:crm": "tsx scripts/crymad-crm/unit.test.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

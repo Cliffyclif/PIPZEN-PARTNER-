@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { emitPartnerStatusChange } from "@/lib/crymad-crm/partner-events";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,8 @@ export async function POST(
         inviteTokenExpiry: null,
       },
     });
+
+    await emitPartnerStatusChange(user, user.status, "ACTIVE", "registration");
 
     // Create notification for referrer
     if (user.referrerId) {

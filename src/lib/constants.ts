@@ -15,6 +15,7 @@ import {
   BadgeCheck,
   Upload,
   BookOpen,
+  LifeBuoy,
 } from "lucide-react";
 
 export const PARTNER_NAV_ITEMS = [
@@ -28,7 +29,17 @@ export const PARTNER_NAV_ITEMS = [
   { label: "Training", href: "/training", icon: GraduationCap, color: "sky" },
   { label: "Messages", href: "/messages", icon: MessageSquare, color: "emerald" },
   { label: "Notifications", href: "/notifications", icon: Bell, color: "purple" },
+  { label: "Support", href: "/support", icon: LifeBuoy, color: "sky" },
   { label: "Settings", href: "/settings", icon: Settings, color: "slate" },
+] as const;
+
+// Categories partners pick when opening a CryMad CRM support ticket.
+export const SUPPORT_CATEGORIES = [
+  { value: "partner_commissions", label: "Commissions" },
+  { value: "partner_withdrawals", label: "Commission withdrawals" },
+  { value: "partner_referrals", label: "Referrals & network" },
+  { value: "partner_portal_access", label: "Portal access" },
+  { value: "partner_other", label: "Something else" },
 ] as const;
 
 export const ADMIN_NAV_ITEMS = [

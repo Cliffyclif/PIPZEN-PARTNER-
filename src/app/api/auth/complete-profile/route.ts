@@ -3,6 +3,7 @@ import { getSession, handleApiError } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { profileSchema } from "@/lib/validations/profile";
+import { changedProfileFields, emitPartnerProfileUpdate } from "@/lib/crymad-crm/partner-events";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const data = profileSchema.parse(body);
 
-    await prisma.user.update({
+    const before = await prisma.user.findUnique({ where: { id: session.user.id } });
+    const updated = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         fullName: data.fullName,
@@ -28,6 +30,8 @@ export async function POST(req: Request) {
         profileCompleted: true,
       },
     });
+
+    if (before) await emitPartnerProfileUpdate(updated, changedProfileFields(before, updated), "partner");
 
     return NextResponse.json({ success: true });
   } catch (error) {

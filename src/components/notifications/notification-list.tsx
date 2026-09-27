@@ -22,8 +22,15 @@ interface Notification {
   type: string;
   title: string;
   message: string;
+  data?: { href?: unknown } | null;
   isRead: boolean;
   createdAt: string;
+}
+
+// Only in-app paths, e.g. "/support/<ticket>" from Pipzen Support replies.
+function notificationHref(n: Notification) {
+  const href = n.data?.href;
+  return typeof href === "string" && href.startsWith("/") && !href.startsWith("//") ? href : null;
 }
 
 interface NotificationListProps {
@@ -86,7 +93,11 @@ export function NotificationList({ notifications }: NotificationListProps) {
                   "bg-slate-800/50 border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors",
                   !n.isRead && "border-l-2 border-l-amber-500"
                 )}
-                onClick={() => !n.isRead && markRead(n.id)}
+                onClick={() => {
+                  if (!n.isRead) markRead(n.id);
+                  const href = notificationHref(n);
+                  if (href) router.push(href);
+                }}
               >
                 <CardContent className="flex items-start gap-4 py-4">
                   <div className={cn(

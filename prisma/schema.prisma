@@ -315,3 +315,83 @@ model Setting {
 
   @@map("settings")
 }
+
+// ─── CRYMAD CRM INTEGRATION ─────────────────────────────────────
+// These tables are also created at runtime by src/lib/crymad-crm/schema.ts,
+// so a deploy works without running `prisma db push` first. Keep both in sync.
+
+// Signed CRM requests already accepted, so each signature is honoured once.
+model CrmReplayGuard {
+  signature String   @id
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("crm_replay_guard")
+}
+
+// Webhooks received from the CRM, keyed by "<environment>:<X-CMX-Event-Id>".
+model CrmWebhookEvent {
+  id          String    @id
+  environment String    @default("live")
+  type        String
+  payload     Json
+  status      String    @default("received")
+  attempts    Int       @default(0)
+  lastError   String?
+  lockedUntil DateTime?
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([status, receivedAt])
+  @@map("crm_webhook_events")
+}
+
+// Platform events waiting to be delivered to the CRM (transactional outbox).
+model CrmOutboxEvent {
+  id                 String    @id
+  environment        String    @default("live")
+  type               String
+  customerExternalId String
+  payload            Json
+  attempts           Int       @default(0)
+  nextAttemptAt      DateTime  @default(now())
+  lockedUntil        DateTime?
+  lastError          String?
+  sentAt             DateTime?
+  deadAt             DateTime?
+  createdAt          DateTime  @default(now())
+
+  @@index([sentAt, nextAttemptAt])
+  @@map("crm_outbox_events")
+}
+
+// Idempotency-Key records for actions the CRM runs against this platform.
+model CrmIdempotencyKey {
+  key            String   @id
+  requestHash    String
+  status         String   @default("in_progress")
+  responseStatus Int?
+  responseBody   String?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("crm_idempotency_keys")
+}
+
+// Audit trail of every CRM action, including dry runs.
+model CrmActionLog {
+  id                 String   @id @default(cuid())
+  action             String
+  customerExternalId String
+  agentId            String
+  approvedBy         String?
+  ticketId           String
+  reason             String
+  verificationRef    String?
+  dryRun             Boolean
+  outcome            String
+  createdAt          DateTime @default(now())
+
+  @@index([customerExternalId])
+  @@map("crm_action_log")
+}

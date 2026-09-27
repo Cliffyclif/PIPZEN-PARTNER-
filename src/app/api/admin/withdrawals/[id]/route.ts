@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin, handleApiError } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { sendWithdrawalStatusEmail } from "@/lib/email";
+import { emitPlatformEvent } from "@/lib/crymad-crm/events";
+import { money } from "@/lib/crymad-crm/customer";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +29,19 @@ export async function PATCH(
         adminNote: adminNote || null,
         processedAt: new Date(),
       },
-      include: { user: { select: { email: true, id: true } } },
+      include: { user: { select: { email: true, id: true, role: true } } },
     });
+
+    if (status === "REJECTED" && withdrawal.user.role === "PARTNER") {
+      await emitPlatformEvent("withdrawal.failed", withdrawal.user, {
+        withdrawal_id: withdrawal.id,
+        amount: money(withdrawal.amount),
+        asset: "USD",
+        method: withdrawal.method.toLowerCase(),
+        reason_code: "rejected_by_admin",
+        reason: adminNote || null,
+      });
+    }
 
     // Notify partner
     await prisma.notification.create({

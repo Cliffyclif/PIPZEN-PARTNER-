@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdmin, handleApiError } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { emitPlatformEvent } from "@/lib/crymad-crm/events";
+import {
+  changedProfileFields,
+  emitPartnerProfileUpdate,
+  emitPartnerStatusChange,
+} from "@/lib/crymad-crm/partner-events";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +73,12 @@ export async function PUT(
       data: updateData,
     });
 
+    if (updated.role === "PARTNER" && updated.email !== user.email) {
+      await emitPlatformEvent("security.changed", updated, { change: "email_changed", source: "admin" });
+    }
+    await emitPartnerStatusChange(updated, user.status, updated.status, "admin");
+    await emitPartnerProfileUpdate(updated, changedProfileFields(user, updated), "admin");
+
     return NextResponse.json({ success: true, user: updated });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -86,10 +98,13 @@ export async function PATCH(
     const body = await req.json();
     const { status } = patchSchema.parse(body);
 
+    const before = await prisma.user.findUnique({ where: { id: params.id }, select: { status: true } });
     const user = await prisma.user.update({
       where: { id: params.id },
       data: { status },
     });
+
+    if (before) await emitPartnerStatusChange(user, before.status, user.status, "admin");
 
     return NextResponse.json({ success: true, user });
   } catch (error) {
@@ -131,6 +146,12 @@ export async function DELETE(
     if (user.role === "ADMIN") {
       return NextResponse.json({ error: "Cannot delete admin users" }, { status: 400 });
     }
+
+    await emitPlatformEvent("account.restricted", user, {
+      restrictions: ["account_closed"],
+      source: "admin",
+      reason: "account_deleted",
+    });
 
     // Unlink referrals (set their referrerId to null) so they aren't orphaned
     await prisma.user.updateMany({

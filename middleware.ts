@@ -26,6 +26,7 @@ function isPartnerRoute(path: string) {
     path.startsWith("/training") ||
     path.startsWith("/messages") ||
     path.startsWith("/notifications") ||
+    path.startsWith("/support") ||
     path.startsWith("/settings") ||
     path.startsWith("/complete-profile") ||
     path.startsWith("/register")
@@ -36,12 +37,22 @@ function isAdminRoute(path: string) {
   return path.startsWith("/admin");
 }
 
+// Server-to-server calls from CryMad CRM. They carry no session; each route
+// verifies the CRM's HMAC signature itself.
+function isCrmRoute(path: string) {
+  return path.startsWith("/crymad-crm/") || path === "/api/crymad-crm/webhooks";
+}
+
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
     // Behind Nginx proxy, req.nextUrl.hostname is 127.0.0.1 — use Host header instead
     const hostname = req.headers.get("host")?.split(":")[0] || req.nextUrl.hostname;
+
+    if (isCrmRoute(path)) {
+      return NextResponse.next();
+    }
 
     // ============================================
     // ADMIN DOMAIN (admin.pipzen.io) — fully isolated

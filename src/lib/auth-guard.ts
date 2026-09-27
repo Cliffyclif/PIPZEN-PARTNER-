@@ -1,14 +1,22 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
+import { prisma } from "./prisma";
 import { NextResponse } from "next/server";
 
 export async function getSession() {
   return getServerSession(authOptions);
 }
 
+// Session JWTs carry the status from sign-in time, so re-check the database:
+// a partner locked or banned later must lose access straight away.
+export async function isSessionUserActive(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true } });
+  return user !== null && user.status !== "BANNED";
+}
+
 export async function requireAuth() {
   const session = await getSession();
-  if (!session?.user) {
+  if (!session?.user || !(await isSessionUserActive(session.user.id))) {
     throw new Error("Unauthorized");
   }
   return session;

@@ -59,27 +59,30 @@ interface Partner {
 interface PartnersClientProps {
   partners: Partner[];
   activePartners: { id: string; fullName: string | null; email: string }[];
+  // ?partner=<id> deep link (used by CryMad CRM's admin_url) opens that partner.
+  initialPartnerId?: string;
 }
 
-export function PartnersClient({ partners, activePartners }: PartnersClientProps) {
+export function PartnersClient({ partners, activePartners, initialPartnerId }: PartnersClientProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const linkedPartner = initialPartnerId ? partners.find((p) => p.id === initialPartnerId) ?? null : null;
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(Boolean(linkedPartner));
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(linkedPartner);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [networkOpen, setNetworkOpen] = useState(false);
   const [networkPartner, setNetworkPartner] = useState<{ id: string; name: string }>({ id: "", name: "" });
 
   // Edit form state
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editRefLink, setEditRefLink] = useState("");
-  const [editReferrerId, setEditReferrerId] = useState("");
-  const [editStatus, setEditStatus] = useState("ACTIVE");
+  const [editName, setEditName] = useState(linkedPartner?.fullName || "");
+  const [editEmail, setEditEmail] = useState(linkedPartner?.email || "");
+  const [editPhone, setEditPhone] = useState(linkedPartner?.phone || "");
+  const [editRefLink, setEditRefLink] = useState(linkedPartner?.pipzenReferralLink || "");
+  const [editReferrerId, setEditReferrerId] = useState(linkedPartner ? linkedPartner.referrer?.id || "none" : "");
+  const [editStatus, setEditStatus] = useState(linkedPartner?.status || "ACTIVE");
 
   function openEditDialog(partner: Partner) {
     setSelectedPartner(partner);

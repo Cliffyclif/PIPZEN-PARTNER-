@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MobileNav } from "./mobile-nav";
+import { crmLogout } from "@/components/support/crm-widget";
 
 interface HeaderProps {
   variant: "partner" | "admin";
@@ -77,7 +78,10 @@ export function Header({ variant }: HeaderProps) {
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-slate-700" />
           <DropdownMenuItem
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => {
+              crmLogout();
+              signOut({ callbackUrl: "/login" });
+            }}
             className="cursor-pointer text-red-400 focus:text-red-400"
           >
             <LogOut className="mr-2 h-4 w-4" />

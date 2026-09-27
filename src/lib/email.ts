@@ -233,3 +233,60 @@ export async function sendWithdrawalStatusEmail(
     throw new Error(error.message || "Failed to send withdrawal email");
   }
 }
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Sent when Pipzen Support locks a partner account from the CryMad CRM.
+export async function sendAccountLockedEmail(email: string, name?: string | null) {
+  const content = `
+    <h1 style="margin: 0 0 8px; color: #f8fafc; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
+      Your Partner Account Is Locked
+    </h1>
+    <p style="margin: 0 0 28px; color: #94a3b8; font-size: 15px; line-height: 1.5;">
+      ${name ? `Hi ${escapeHtml(name)}, ` : ""}Pipzen Support has locked your PipZen Partner account to protect it.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 28px;">
+      <tr>
+        <td style="padding: 16px; background-color: #0f172a; border-radius: 10px; border: 1px solid #1e293b;">
+          <p style="margin: 0 0 8px; color: #cbd5e1; font-size: 14px; line-height: 1.5;">While the account is locked:</p>
+          <p style="margin: 0; color: #94a3b8; font-size: 14px; line-height: 1.7;">
+            <span style="color: #f59e0b; margin-right: 8px;">&#9679;</span>You cannot sign in to the partner portal.<br>
+            <span style="color: #f59e0b; margin-right: 8px;">&#9679;</span>New commission withdrawals are paused.<br>
+            <span style="color: #f59e0b; margin-right: 8px;">&#9679;</span>Your commissions and network are kept safe.
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding: 16px; background-color: rgba(245, 158, 11, 0.06); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.15);">
+          <p style="margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.5;">
+            <span style="color: #f59e0b; font-weight: 600;">Did not expect this?</span> Contact Pipzen Support at
+            <a href="mailto:support@pipzen.io" style="color: #f59e0b;">support@pipzen.io</a>. We will confirm it is you and unlock the account.
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  const { error } = await getResend().emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: "Your PipZen Partner account is locked",
+    html: emailWrapper(content),
+  });
+
+  if (error) {
+    console.error("Resend account locked email error:", error);
+    throw new Error(error.message || "Failed to send account locked email");
+  }
+}
